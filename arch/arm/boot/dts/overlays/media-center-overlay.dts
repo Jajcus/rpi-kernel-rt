@@ -1,5 +1,5 @@
 /*
- * Device Tree overlay for rpi-display by Watterott
+ * Device Tree overlay for Media Center HAT by Pi Supply
  *
  */
 
@@ -13,35 +13,29 @@
 		target = <&spi0>;
 		__overlay__ {
 			status = "okay";
+
+			spidev@0{
+				status = "disabled";
+			};
+
+			spidev@1{
+				status = "disabled";
+			};
 		};
 	};
 
 	fragment@1 {
-		target = <&spidev0>;
-		__overlay__ {
-			status = "disabled";
-		};
-	};
-
-	fragment@2 {
-		target = <&spidev1>;
-		__overlay__ {
-			status = "disabled";
-		};
-	};
-
-	fragment@3 {
 		target = <&gpio>;
 		__overlay__ {
 			rpi_display_pins: rpi_display_pins {
-				brcm,pins = <18 23 24 25>;
+				brcm,pins = <12 23 24 25>;
 				brcm,function = <1 1 1 0>; /* out out out in */
 				brcm,pull = <0 0 0 2>; /* - - - up */
 			};
 		};
 	};
 
-	fragment@4 {
+	fragment@2 {
 		target = <&spi0>;
 		__overlay__ {
 			/* needed to avoid dtc warning */
@@ -55,13 +49,13 @@
 				pinctrl-0 = <&rpi_display_pins>;
 
 				spi-max-frequency = <32000000>;
-				rotate = <270>;
+				rotate = <90>;
 				bgr;
 				fps = <30>;
 				buswidth = <8>;
 				reset-gpios = <&gpio 23 0>;
 				dc-gpios = <&gpio 24 0>;
-				led-gpios = <&gpio 18 1>;
+				led-gpios = <&gpio 12 1>;
 				debug = <0>;
 			};
 
@@ -78,14 +72,63 @@
 			};
 		};
 	};
+
+	fragment@3 {
+		target-path = "/";
+		__overlay__ {
+			lirc_rpi: lirc_rpi {
+				compatible = "rpi,lirc-rpi";
+				pinctrl-names = "default";
+				pinctrl-0 = <&lirc_pins>;
+				status = "okay";
+
+				// Override autodetection of IR receiver circuit
+				// (0 = active high, 1 = active low, -1 = no override )
+				rpi,sense = <0xffffffff>;
+
+				// Software carrier
+				// (0 = off, 1 = on)
+				rpi,softcarrier = <1>;
+
+				// Invert output
+				// (0 = off, 1 = on)
+				rpi,invert = <0>;
+
+				// Enable debugging messages
+				// (0 = off, 1 = on)
+				rpi,debug = <0>;
+			};
+		};
+	};
+
+	fragment@4 {
+		target = <&gpio>;
+		__overlay__ {
+			lirc_pins: lirc_pins {
+				brcm,pins = <6 5>;
+				brcm,function = <1 0>; // out in
+				brcm,pull = <0 1>; // off down
+			};
+		};
+	};
+
 	__overrides__ {
 		speed =     <&rpidisplay>,"spi-max-frequency:0";
 		rotate =    <&rpidisplay>,"rotate:0";
 		fps =       <&rpidisplay>,"fps:0";
-		debug =     <&rpidisplay>,"debug:0";
+		debug =     <&rpidisplay>,"debug:0", 
+		            <&lirc_rpi>,"rpi,debug:0";
 		xohms =     <&rpidisplay_ts>,"ti,x-plate-ohms;0";
 		swapxy =    <&rpidisplay_ts>,"ti,swap-xy?";
 		backlight = <&rpidisplay>,"led-gpios:4",
 		            <&rpi_display_pins>,"brcm,pins:0";
+
+		gpio_out_pin =  <&lirc_pins>,"brcm,pins:0";
+		gpio_in_pin =   <&lirc_pins>,"brcm,pins:4";
+		gpio_in_pull =  <&lirc_pins>,"brcm,pull:4";
+
+		sense =         <&lirc_rpi>,"rpi,sense:0";
+		softcarrier =   <&lirc_rpi>,"rpi,softcarrier:0";
+		invert =        <&lirc_rpi>,"rpi,invert:0";
 	};
 };
